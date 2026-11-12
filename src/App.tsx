@@ -4,6 +4,7 @@ import { TickerTape } from './components/TickerTape';
 import { Navbar } from './components/Navbar';
 import { MarketCategoryTabs } from './components/MarketCategoryTabs';
 import { HeroIndices } from './components/HeroIndices';
+import { MacroBarometer } from './components/MacroBarometer';
 import { MarketMovers } from './components/MarketMovers';
 import { SectorBarometer } from './components/SectorBarometer';
 import { NewsAndCalendar } from './components/NewsAndCalendar';
@@ -33,6 +34,9 @@ const MarketContent: React.FC = () => {
           <div className="space-y-8 animate-in fade-in duration-200">
             {/* Major Benchmarks Cards with interactive mini charts */}
             <HeroIndices />
+
+            {/* Global Market Breadth & Macro Pulse */}
+            <MacroBarometer />
 
             {/* S&P 500 Sector Capital Rotation */}
             <SectorBarometer />

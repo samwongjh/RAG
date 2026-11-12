@@ -111,54 +111,110 @@ export const MarketHeatmap: React.FC = () => {
         </div>
       </div>
 
-      {/* Treemap Container */}
-      <div className="relative min-h-[460px] w-full bg-[#131722] p-2 rounded-lg border border-[#2a2e39] grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 auto-rows-fr">
-        {relevantAssets.map(asset => {
-          const cap = parseCap(asset.marketCap);
-          const weightPercent = (cap / totalCap) * 100;
-          const colorClass = getHeatmapColor(asset.changePercent);
+      {/* Treemap Container with Sector Grouping */}
+      {heatmapType === 'stocks' && selectedSector === 'All' ? (
+        <div className="space-y-4">
+          {['Technology', 'Communication', 'Financial', 'Consumer Cyclical', 'Healthcare', 'Energy'].map(secName => {
+            const sectorAssets = relevantAssets.filter(a => a.sector?.toLowerCase().includes(secName.toLowerCase()));
+            if (sectorAssets.length === 0) return null;
 
-          // Span larger grid cells for heavyweights like NVDA, AAPL, MSFT, BTC
-          const spanClass =
-            weightPercent > 18
-              ? 'col-span-2 row-span-2 min-h-[160px]'
-              : weightPercent > 8
-              ? 'col-span-2 row-span-1 min-h-[100px]'
-              : 'col-span-1 row-span-1 min-h-[85px]';
+            return (
+              <div key={secName} className="bg-[#131722] p-3 rounded-lg border border-[#2a2e39]">
+                <div className="flex items-center justify-between text-xs font-bold text-[#787b86] uppercase tracking-wider mb-2 px-1">
+                  <span className="text-[#d1d4dc]">{secName}</span>
+                  <span className="font-mono text-[11px] font-normal">{sectorAssets.length} Instruments</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                  {sectorAssets.map(asset => {
+                    const cap = parseCap(asset.marketCap);
+                    const colorClass = getHeatmapColor(asset.changePercent);
+                    const isHeavy = cap > 800;
 
-          return (
-            <div
-              key={asset.symbol}
-              onClick={() => setSelectedAsset(asset)}
-              onMouseEnter={() => setHoveredAsset(asset)}
-              onMouseLeave={() => setHoveredAsset(null)}
-              className={`${spanClass} ${colorClass} p-3 rounded-md flex flex-col justify-between cursor-pointer hover:ring-2 hover:ring-[#2962ff] transition-all relative overflow-hidden group shadow-xs`}
-            >
-              <div className="flex items-start justify-between">
-                <span className="font-extrabold text-sm sm:text-base tracking-tight leading-none group-hover:scale-105 transition-transform">
-                  {asset.symbol}
-                </span>
-                <span className="text-[10px] font-mono opacity-80 uppercase">
-                  {asset.sector ? asset.sector.split(' ')[0] : asset.category}
-                </span>
+                    return (
+                      <div
+                        key={asset.symbol}
+                        onClick={() => setSelectedAsset(asset)}
+                        onMouseEnter={() => setHoveredAsset(asset)}
+                        onMouseLeave={() => setHoveredAsset(null)}
+                        className={`${isHeavy ? 'col-span-2 row-span-1 min-h-[95px]' : 'col-span-1 min-h-[85px]'} ${colorClass} p-3 rounded-md flex flex-col justify-between cursor-pointer hover:ring-2 hover:ring-[#2962ff] transition-all relative overflow-hidden group shadow-xs`}
+                      >
+                        <div className="flex items-start justify-between">
+                          <span className="font-extrabold text-sm sm:text-base tracking-tight leading-none group-hover:scale-105 transition-transform">
+                            {asset.symbol}
+                          </span>
+                          <span className="text-[10px] font-mono opacity-80 uppercase">
+                            {asset.marketCap || 'N/A'}
+                          </span>
+                        </div>
+
+                        <div className="my-1 truncate text-[11px] opacity-85 hidden sm:block">
+                          {asset.name}
+                        </div>
+
+                        <div className="flex items-baseline justify-between tabular-nums">
+                          <span className="text-xs font-semibold">
+                            ${asset.price.toLocaleString('en-US', { maximumFractionDigits: asset.price > 10 ? 2 : 4 })}
+                          </span>
+                          <span className="text-xs font-bold font-mono">
+                            {asset.changePercent >= 0 ? '+' : ''}{asset.changePercent.toFixed(2)}%
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="relative min-h-[460px] w-full bg-[#131722] p-2 rounded-lg border border-[#2a2e39] grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 auto-rows-fr">
+          {relevantAssets.map(asset => {
+            const cap = parseCap(asset.marketCap);
+            const weightPercent = (cap / totalCap) * 100;
+            const colorClass = getHeatmapColor(asset.changePercent);
 
-              <div className="my-1 truncate text-[11px] opacity-85 hidden sm:block">
-                {asset.name}
-              </div>
+            const spanClass =
+              weightPercent > 18
+                ? 'col-span-2 row-span-2 min-h-[160px]'
+                : weightPercent > 8
+                ? 'col-span-2 row-span-1 min-h-[100px]'
+                : 'col-span-1 row-span-1 min-h-[85px]';
 
-              <div className="flex items-baseline justify-between tabular-nums">
-                <span className="text-xs font-semibold">
-                  ${asset.price.toLocaleString('en-US', { maximumFractionDigits: asset.price > 10 ? 2 : 4 })}
-                </span>
-                <span className="text-xs font-bold font-mono">
-                  {asset.changePercent >= 0 ? '+' : ''}{asset.changePercent.toFixed(2)}%
-                </span>
+            return (
+              <div
+                key={asset.symbol}
+                onClick={() => setSelectedAsset(asset)}
+                onMouseEnter={() => setHoveredAsset(asset)}
+                onMouseLeave={() => setHoveredAsset(null)}
+                className={`${spanClass} ${colorClass} p-3 rounded-md flex flex-col justify-between cursor-pointer hover:ring-2 hover:ring-[#2962ff] transition-all relative overflow-hidden group shadow-xs`}
+              >
+                <div className="flex items-start justify-between">
+                  <span className="font-extrabold text-sm sm:text-base tracking-tight leading-none group-hover:scale-105 transition-transform">
+                    {asset.symbol}
+                  </span>
+                  <span className="text-[10px] font-mono opacity-80 uppercase">
+                    {asset.sector ? asset.sector.split(' ')[0] : asset.category}
+                  </span>
+                </div>
+
+                <div className="my-1 truncate text-[11px] opacity-85 hidden sm:block">
+                  {asset.name}
+                </div>
+
+                <div className="flex items-baseline justify-between tabular-nums">
+                  <span className="text-xs font-semibold">
+                    ${asset.price.toLocaleString('en-US', { maximumFractionDigits: asset.price > 10 ? 2 : 4 })}
+                  </span>
+                  <span className="text-xs font-bold font-mono">
+                    {asset.changePercent >= 0 ? '+' : ''}{asset.changePercent.toFixed(2)}%
+                  </span>
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Floating Hover Card Detail */}
       {hoveredAsset && (

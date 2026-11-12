@@ -3,14 +3,16 @@ import { useMarket } from '../context/MarketContext';
 import { MarketAsset, AssetCategory } from '../types/market';
 import { Search, ArrowUpDown, Star, ChevronDown, Check, SlidersHorizontal, BarChart2 } from 'lucide-react';
 
-type SortField = 'symbol' | 'price' | 'changePercent' | 'volume24h' | 'technicalScore';
+type SortField = 'symbol' | 'price' | 'changePercent' | 'volume24h' | 'technicalScore' | 'peRatio';
+type ScreenerViewMode = 'overview' | 'valuation' | 'technicals';
 
 export const MarketScreener: React.FC = () => {
   const { assets, setSelectedAsset, watchlist, toggleWatchlist, lastTickDirections } = useMarket();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [performanceFilter, setPerformanceFilter] = useState<'all' | 'gainers' | 'losers' | 'bullish'>('all');
+  const [performanceFilter, setPerformanceFilter] = useState<'all' | 'gainers' | 'losers' | 'bullish' | 'megacap'>('all');
+  const [viewMode, setViewMode] = useState<ScreenerViewMode>('overview');
   const [sortField, setSortField] = useState<SortField>('changePercent');
   const [sortAsc, setSortAsc] = useState<boolean>(false);
 
@@ -25,6 +27,9 @@ export const MarketScreener: React.FC = () => {
       if (performanceFilter === 'gainers' && asset.changePercent <= 0) return false;
       if (performanceFilter === 'losers' && asset.changePercent >= 0) return false;
       if (performanceFilter === 'bullish' && !['Strong Buy', 'Buy'].includes(asset.technicalRating)) return false;
+      if (performanceFilter === 'megacap') {
+        if (!asset.marketCap || !asset.marketCap.includes('T')) return false;
+      }
 
       // Text search
       if (searchQuery.trim()) {
@@ -46,6 +51,8 @@ export const MarketScreener: React.FC = () => {
         comparison = a.changePercent - b.changePercent;
       } else if (sortField === 'technicalScore') {
         comparison = a.technicalScore - b.technicalScore;
+      } else if (sortField === 'peRatio') {
+        comparison = (a.peRatio || 0) - (b.peRatio || 0);
       } else if (sortField === 'volume24h') {
         const getVal = (v: string) => {
           const num = parseFloat(v.replace(/[^0-9.]/g, '')) || 0;
@@ -66,6 +73,31 @@ export const MarketScreener: React.FC = () => {
     }
   };
 
+  const handleExportCSV = () => {
+    const headers = ['Symbol', 'Name', 'Category', 'Price', 'ChangePercent', '24hHigh', '24hLow', 'Volume', 'MarketCap', 'PERatio', 'TechnicalRating'];
+    const rows = filteredAssets.map(a => [
+      `"${a.symbol}"`,
+      `"${a.name}"`,
+      `"${a.category}"`,
+      a.price,
+      `${a.changePercent}%`,
+      a.high24h,
+      a.low24h,
+      `"${a.volume24h}"`,
+      `"${a.marketCap || 'N/A'}"`,
+      a.peRatio || 'N/A',
+      `"${a.technicalRating}"`,
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `TradingView_Screener_${selectedCategory}_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const categories: { id: string; label: string }[] = [
     { id: 'all', label: 'All Instruments' },
     { id: 'stocks', label: 'Stocks' },
@@ -77,7 +109,7 @@ export const MarketScreener: React.FC = () => {
   ];
 
   return (
-    <div className="w-full bg-[#1e222d] border border-[#2a2e39] rounded-xl overflow-hidden mb-8">
+    <div className="w-full bg-[#1e222d] border border-[#2a2e39] rounded-xl overflow-hidden mb-8 transition-colors">
       {/* Screener Header & Filter Toolbar */}
       <div className="p-4 sm:p-5 border-b border-[#2a2e39] space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -86,19 +118,39 @@ export const MarketScreener: React.FC = () => {
               <SlidersHorizontal className="w-5 h-5 text-[#2962ff]" />
               <h2 className="text-xl font-bold text-[#f0f3fa]">Global Market Screener</h2>
             </div>
-            <p className="text-xs text-[#787b86]">Multi-asset screening, technical filters and performance metrics</p>
+            <p className="text-xs text-[#787b86]">Multi-asset screening, valuation multiples, technical ratings and institutional export</p>
           </div>
 
-          {/* Quick Search in Screener */}
-          <div className="relative w-full md:w-64">
-            <Search className="w-4 h-4 text-[#787b86] absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Filter by symbol, company..."
-              className="w-full bg-[#131722] border border-[#2a2e39] rounded-lg pl-9 pr-3 py-1.5 text-xs text-[#f0f3fa] placeholder-[#787b86] focus:outline-none focus:border-[#2962ff]"
-            />
+          <div className="flex items-center gap-2">
+            {/* View Mode Switcher */}
+            <div className="flex bg-[#131722] p-0.5 rounded-lg border border-[#2a2e39] text-xs">
+              {(
+                [
+                  { id: 'overview', label: 'Overview' },
+                  { id: 'valuation', label: 'Valuation' },
+                  { id: 'technicals', label: 'Technicals' },
+                ] as const
+              ).map(vm => (
+                <button
+                  key={vm.id}
+                  onClick={() => setViewMode(vm.id)}
+                  className={`px-3 py-1 rounded font-medium transition-colors cursor-pointer ${
+                    viewMode === vm.id ? 'bg-[#2962ff] text-white shadow-xs' : 'text-[#787b86] hover:text-[#d1d4dc]'
+                  }`}
+                >
+                  {vm.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Export CSV Button */}
+            <button
+              onClick={handleExportCSV}
+              className="px-3 py-1 bg-[#131722] hover:bg-[#252a36] border border-[#2a2e39] text-[#d1d4dc] hover:text-[#2962ff] rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
+              title="Download CSV of current results"
+            >
+              <span>Export CSV</span>
+            </button>
           </div>
         </div>
 
@@ -126,9 +178,10 @@ export const MarketScreener: React.FC = () => {
             {(
               [
                 { id: 'all', label: 'All Returns' },
-                { id: 'gainers', label: 'Positive (>0%)' },
-                { id: 'losers', label: 'Negative (<0%)' },
+                { id: 'gainers', label: 'Gainers (>0%)' },
+                { id: 'losers', label: 'Losers (<0%)' },
                 { id: 'bullish', label: 'Bullish Rating' },
+                { id: 'megacap', label: 'Mega-Cap ($1T+)' },
               ] as const
             ).map(p => (
               <button
@@ -171,21 +224,55 @@ export const MarketScreener: React.FC = () => {
                   <ArrowUpDown className="w-3 h-3" />
                 </div>
               </th>
-              <th className="py-3 px-4 text-right hidden sm:table-cell">24h High</th>
-              <th className="py-3 px-4 text-right hidden sm:table-cell">24h Low</th>
-              <th className="py-3 px-4 text-right hidden md:table-cell cursor-pointer hover:text-[#f0f3fa]" onClick={() => handleSort('volume24h')}>
-                <div className="flex items-center justify-end gap-1">
-                  <span>Volume</span>
-                  <ArrowUpDown className="w-3 h-3" />
-                </div>
-              </th>
-              <th className="py-3 px-4 text-center cursor-pointer hover:text-[#f0f3fa]" onClick={() => handleSort('technicalScore')}>
-                <div className="flex items-center justify-center gap-1">
-                  <span>Technical Score</span>
-                  <ArrowUpDown className="w-3 h-3" />
-                </div>
-              </th>
-              <th className="py-3 px-4 text-center">Open</th>
+
+              {viewMode === 'overview' && (
+                <>
+                  <th className="py-3 px-4 text-right hidden sm:table-cell">24h High</th>
+                  <th className="py-3 px-4 text-right hidden sm:table-cell">24h Low</th>
+                  <th className="py-3 px-4 text-right hidden md:table-cell cursor-pointer hover:text-[#f0f3fa]" onClick={() => handleSort('volume24h')}>
+                    <div className="flex items-center justify-end gap-1">
+                      <span>Volume</span>
+                      <ArrowUpDown className="w-3 h-3" />
+                    </div>
+                  </th>
+                  <th className="py-3 px-4 text-center cursor-pointer hover:text-[#f0f3fa]" onClick={() => handleSort('technicalScore')}>
+                    <div className="flex items-center justify-center gap-1">
+                      <span>Score</span>
+                      <ArrowUpDown className="w-3 h-3" />
+                    </div>
+                  </th>
+                </>
+              )}
+
+              {viewMode === 'valuation' && (
+                <>
+                  <th className="py-3 px-4 text-right">Market Cap</th>
+                  <th className="py-3 px-4 text-right cursor-pointer hover:text-[#f0f3fa]" onClick={() => handleSort('peRatio')}>
+                    <div className="flex items-center justify-end gap-1">
+                      <span>P/E Ratio</span>
+                      <ArrowUpDown className="w-3 h-3" />
+                    </div>
+                  </th>
+                  <th className="py-3 px-4 text-right hidden sm:table-cell">Div Yield</th>
+                  <th className="py-3 px-4 text-right hidden md:table-cell">Sector</th>
+                </>
+              )}
+
+              {viewMode === 'technicals' && (
+                <>
+                  <th className="py-3 px-4 text-center">Technical Rating</th>
+                  <th className="py-3 px-4 text-center cursor-pointer hover:text-[#f0f3fa]" onClick={() => handleSort('technicalScore')}>
+                    <div className="flex items-center justify-center gap-1">
+                      <span>Score (0-100)</span>
+                      <ArrowUpDown className="w-3 h-3" />
+                    </div>
+                  </th>
+                  <th className="py-3 px-4 text-right hidden sm:table-cell">24h Range Pos</th>
+                  <th className="py-3 px-4 text-right hidden md:table-cell">Volume</th>
+                </>
+              )}
+
+              <th className="py-3 px-4 text-center">Chart</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#2a2e39]/50">
@@ -243,33 +330,79 @@ export const MarketScreener: React.FC = () => {
                       </span>
                     </td>
 
-                    <td className="py-3 px-4 text-right tabular-nums text-[#787b86] hidden sm:table-cell">
-                      ${asset.high24h.toLocaleString('en-US', { maximumFractionDigits: 2 })}
-                    </td>
+                    {/* ViewMode: Overview */}
+                    {viewMode === 'overview' && (
+                      <>
+                        <td className="py-3 px-4 text-right tabular-nums text-[#787b86] hidden sm:table-cell">
+                          ${asset.high24h.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-3 px-4 text-right tabular-nums text-[#787b86] hidden sm:table-cell">
+                          ${asset.low24h.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-3 px-4 text-right tabular-nums text-[#d1d4dc] hidden md:table-cell">
+                          {asset.volume24h}
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <div className="w-14 bg-[#131722] h-1.5 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full ${
+                                  asset.technicalScore >= 70 ? 'bg-[#089981]' : asset.technicalScore >= 45 ? 'bg-[#f59e0b]' : 'bg-[#f23645]'
+                                }`}
+                                style={{ width: `${asset.technicalScore}%` }}
+                              />
+                            </div>
+                            <span className="text-[11px] font-mono text-[#d1d4dc] tabular-nums">
+                              {asset.technicalScore}
+                            </span>
+                          </div>
+                        </td>
+                      </>
+                    )}
 
-                    <td className="py-3 px-4 text-right tabular-nums text-[#787b86] hidden sm:table-cell">
-                      ${asset.low24h.toLocaleString('en-US', { maximumFractionDigits: 2 })}
-                    </td>
+                    {/* ViewMode: Valuation */}
+                    {viewMode === 'valuation' && (
+                      <>
+                        <td className="py-3 px-4 text-right tabular-nums font-medium text-[#f0f3fa]">
+                          {asset.marketCap || 'N/A'}
+                        </td>
+                        <td className="py-3 px-4 text-right tabular-nums font-mono text-[#d1d4dc]">
+                          {asset.peRatio ? `${asset.peRatio.toFixed(1)}x` : 'N/A'}
+                        </td>
+                        <td className="py-3 px-4 text-right tabular-nums text-[#787b86] hidden sm:table-cell">
+                          {asset.dividendYield ? `${asset.dividendYield}%` : '0.00%'}
+                        </td>
+                        <td className="py-3 px-4 text-right text-[#787b86] hidden md:table-cell">
+                          {asset.sector || asset.category.toUpperCase()}
+                        </td>
+                      </>
+                    )}
 
-                    <td className="py-3 px-4 text-right tabular-nums text-[#d1d4dc] hidden md:table-cell">
-                      {asset.volume24h}
-                    </td>
-
-                    <td className="py-3 px-4 text-center">
-                      <div className="flex items-center justify-center gap-1.5">
-                        <div className="w-16 bg-[#131722] h-1.5 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full ${
-                              asset.technicalScore >= 70 ? 'bg-[#089981]' : asset.technicalScore >= 45 ? 'bg-[#f59e0b]' : 'bg-[#f23645]'
-                            }`}
-                            style={{ width: `${asset.technicalScore}%` }}
-                          />
-                        </div>
-                        <span className="text-[11px] font-mono text-[#d1d4dc] tabular-nums">
-                          {asset.technicalScore}
-                        </span>
-                      </div>
-                    </td>
+                    {/* ViewMode: Technicals */}
+                    {viewMode === 'technicals' && (
+                      <>
+                        <td className="py-3 px-4 text-center">
+                          <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${
+                            asset.technicalRating.includes('Buy')
+                              ? 'text-[#089981] bg-[#089981]/15'
+                              : asset.technicalRating.includes('Sell')
+                              ? 'text-[#f23645] bg-[#f23645]/15'
+                              : 'text-[#f59e0b] bg-[#f59e0b]/15'
+                          }`}>
+                            {asset.technicalRating}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-center font-mono font-bold text-[#f0f3fa] tabular-nums">
+                          {asset.technicalScore} / 100
+                        </td>
+                        <td className="py-3 px-4 text-right tabular-nums text-[#787b86] hidden sm:table-cell">
+                          {Math.round(((asset.price - asset.low24h) / (asset.high24h - asset.low24h || 1)) * 100)}%
+                        </td>
+                        <td className="py-3 px-4 text-right tabular-nums text-[#d1d4dc] hidden md:table-cell">
+                          {asset.volume24h}
+                        </td>
+                      </>
+                    )}
 
                     <td className="py-3 px-4 text-center">
                       <button

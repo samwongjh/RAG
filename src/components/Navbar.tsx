@@ -42,20 +42,26 @@ export const Navbar: React.FC = () => {
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4 md:gap-8">
         
         {/* Zone 1: Brand Wordmark */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-4 shrink-0">
           <button 
             onClick={() => setActiveTab('overview')}
             className="flex items-center gap-2.5 text-left group cursor-pointer"
           >
-            {/* TradingView signature geometric icon */}
+            {/* TradingView signature 3-slash geometry */}
             <div className="w-8 h-8 rounded-lg bg-[#2962ff] flex items-center justify-center text-white shadow-sm shadow-[#2962ff]/30 group-hover:scale-105 transition-transform">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M4 14.5L9.5 9L14 13.5L20 7.5V11.5H22V4H14.5V6H18.5L13.5 11L9 6.5L2 13.5V14.5H4Z" />
+              <svg width="20" height="20" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M4 18.5L8.5 13.5L12.5 17.5L24 6V11.5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M19 6H24V11" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <rect x="3" y="21" width="22" height="2" rx="1" fill="currentColor" fillOpacity="0.5"/>
               </svg>
             </div>
-            <div className="flex flex-col">
+            <div className="flex items-center gap-2">
               <span className="font-extrabold text-base md:text-lg tracking-tight text-[#f0f3fa] whitespace-nowrap">
                 TradingView <span className="text-[#2962ff] font-bold">Markets</span>
+              </span>
+              <span className="hidden xl:inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-semibold bg-[#089981]/15 text-[#089981] border border-[#089981]/30">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#089981] animate-pulse" />
+                NYSE/NASDAQ LIVE
               </span>
             </div>
           </button>

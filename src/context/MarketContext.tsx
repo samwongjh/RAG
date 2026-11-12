@@ -4,6 +4,18 @@ import { INITIAL_ASSETS } from '../data/marketData';
 
 export type MarketTab = 'overview' | 'stocks' | 'crypto' | 'forex' | 'indices' | 'futures' | 'bonds' | 'heatmap' | 'screener';
 
+export interface MarketBreadth {
+  advancing: number;
+  declining: number;
+  unchanged: number;
+  newHighs: number;
+  newLows: number;
+  fearGreedIndex: number;
+  fearGreedLabel: 'Extreme Fear' | 'Fear' | 'Neutral' | 'Greed' | 'Extreme Greed';
+  vix: number;
+  vixChange: number;
+}
+
 interface MarketContextType {
   assets: MarketAsset[];
   activeTab: MarketTab;
@@ -26,6 +38,14 @@ interface MarketContextType {
   addAlert: (symbol: string, targetPrice: number, condition: 'above' | 'below') => void;
   removeAlert: (id: string) => void;
   lastTickDirections: Record<string, 'up' | 'down'>;
+  breadth: MarketBreadth;
+  marketSession: {
+    status: 'Open' | 'Post-Market' | 'Pre-Market';
+    name: string;
+    closesIn: string;
+  };
+  playAlertSound: () => void;
+  exportWatchlistCSV: () => void;
 }
 
 const MarketContext = createContext<MarketContextType | undefined>(undefined);
@@ -39,6 +59,74 @@ export const MarketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
   const [currency, setCurrency] = useState<string>('USD');
   const [lastTickDirections, setLastTickDirections] = useState<Record<string, 'up' | 'down'>>({});
+
+  // Market Breadth & Macro sentiment indicators
+  const [breadth, setBreadth] = useState<MarketBreadth>({
+    advancing: 3184,
+    declining: 1842,
+    unchanged: 312,
+    newHighs: 194,
+    newLows: 31,
+    fearGreedIndex: 68,
+    fearGreedLabel: 'Greed',
+    vix: 15.18,
+    vixChange: -0.42,
+  });
+
+  const marketSession = {
+    status: 'Open' as const,
+    name: 'US Regular Hours',
+    closesIn: '3h 48m',
+  };
+
+  // Subtle web audio chime for price alert triggers
+  const playAlertSound = () => {
+    try {
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, ctx.currentTime); // A5
+      osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.15); // E6
+      gain.gain.setValueAtTime(0.08, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.35);
+    } catch {
+      // Audio autoplay policy fallback
+    }
+  };
+
+  // Watchlist CSV exporter
+  const exportWatchlistCSV = () => {
+    const watched = assets.filter(a => watchlist.includes(a.symbol));
+    const headers = ['Symbol', 'Name', 'Category', 'Price', 'Change', 'ChangePercent', '24hHigh', '24hLow', 'Volume', 'MarketCap', 'TechnicalRating'];
+    const rows = watched.map(a => [
+      `"${a.symbol}"`,
+      `"${a.name}"`,
+      `"${a.category}"`,
+      a.price,
+      a.change,
+      `${a.changePercent}%`,
+      a.high24h,
+      a.low24h,
+      `"${a.volume24h}"`,
+      `"${a.marketCap || 'N/A'}"`,
+      `"${a.technicalRating}"`,
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `TradingView_Watchlist_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   // Theme management synced with html element
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
@@ -213,7 +301,7 @@ export const MarketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  return (
+      return (
     <MarketContext.Provider
       value={{
         assets,
@@ -237,6 +325,10 @@ export const MarketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         addAlert,
         removeAlert,
         lastTickDirections,
+        breadth,
+        marketSession,
+        playAlertSound,
+        exportWatchlistCSV,
       }}
     >
       {children}
