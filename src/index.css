@@ -1,0 +1,64 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  body {
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+/* Custom scrollbars matching TradingView */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #363a45;
+  border-radius: 3px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #2a2e39;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #4c525e;
+}
+
+/* Pulse animation for price ticks */
+@keyframes tick-up {
+  0% { background-color: rgba(8, 153, 129, 0.35); }
+  100% { background-color: transparent; }
+}
+
+@keyframes tick-down {
+  0% { background-color: rgba(242, 54, 69, 0.35); }
+  100% { background-color: transparent; }
+}
+
+.animate-tick-up {
+  animation: tick-up 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.animate-tick-down {
+  animation: tick-down 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
